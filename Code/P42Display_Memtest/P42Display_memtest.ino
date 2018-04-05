@@ -1,28 +1,30 @@
-// Demo Sketch for P42 Display Shield
-// Memory test
+// Sketch for P42 Display Shield
+// Memory test and FLASH write with character set and BoingBall Demo
 // written by
 // Wolfgang Friedrich
-// 3.Nov.2017
+// Last change: 2018/Mar/30
+// https://hackaday.io/project/21097-ntscpal-video-display-shield
+// https://github.com/wolfgangfriedrich/P42Display
 
+// *** Comment out this line if target system is not an Arduino MEGA ***
+//#define MEGA
 
 // inslude the SPI library:
 #include <Arduino.h>
 #include <SPI.h>
 #include <Wire.h>
-//#include "VS23S010D-L.h"
-//#include "font8x8.h"
 #include "hack8x8.h"
-//#include "Consolas.h"
 
-// *** Comment out this line if target system is not an Arduino MEGA ***
-#define MEGA
+#include <avr/pgmspace.h>
+#include "ball_frames.h"
 
 const int slaveSelectPin  = 10;
 const int MemSelectPin    = 9;
 const int nHOLDPin        = 8;
 const int nWPPin          = 7;
 
-
+const int CHAR_MAP_ADDR		= 0x0000;
+const int BOINGBALL_ADDR	= 0x1000;
 
 void setup() {
 	unsigned int P42_Display_ID = 0;
@@ -60,6 +62,39 @@ SPI.setBitOrder(MSBFIRST) ;
 }
 
 
+void SPImemdump (unsigned long address, unsigned int bytes) {
+
+	unsigned long i = 0;
+	byte result =0;
+	
+	digitalWrite(MemSelectPin,LOW);
+	SPI.transfer( 0x03 );					// read data
+	SPI.transfer( (address >>16) &0xFF );	// start address
+	SPI.transfer( (address >> 8) &0xFF );
+	SPI.transfer( (address     ) &0xFF );
+	for (i = 0; i < bytes; i++) {
+		if ((i % 8) == 0) {
+			if (i != 0)
+				Serial.println (";");
+			Serial.print(" 0x");
+			Serial.print(address + i,HEX);
+			Serial.print(": ");
+		}
+		result = SPI.transfer( 0x00 );
+		Serial.print(" 0x");
+		if (result <0x10)
+			Serial.print ("0");
+		Serial.print(result,HEX);
+	}
+    digitalWrite(MemSelectPin,HIGH); 
+	Serial.println("<");
+  
+
+}
+
+
+
+
 void loop() {
 
   byte MfrID = 0;
@@ -75,7 +110,8 @@ void loop() {
   while (Serial.available() == 0) {};
   incomingByte = Serial.read();
   
-  // SPI transfer
+  
+  // SPI Flash test
   digitalWrite(MemSelectPin,LOW);
   SPI.transfer( address );
   SPI.transfer( 0x00 );
@@ -122,6 +158,7 @@ void loop() {
   digitalWrite(MemSelectPin,HIGH); 
 
   //delay(1000);
+  StatusReg = 1;
   while (StatusReg & 0x01 == 1) {
     Serial.print(StatusReg,HEX);
     digitalWrite(MemSelectPin,LOW);
@@ -203,7 +240,9 @@ void loop() {
   while (Serial.available() == 0) {};
   incomingByte = Serial.read();
 
-
+  
+// No sector erase because first 2 bytes of char map are 0x00 0x40, which overwrites the test 0xAFFE.  
+// Write Character map to Flash at address 0x00
   for (i=0; i<=(sizeof(hack_8ptBitmaps))>>8; i++)	// # of 256byte blocks loops
   {
     digitalWrite(MemSelectPin,LOW);
@@ -242,22 +281,129 @@ void loop() {
 	Serial.println(StatusReg, HEX);
   }
 
-  // debug
-  	digitalWrite(MemSelectPin,LOW);
-	SPI.transfer( 0x03 );               // read data
-	SPI.transfer( 0x00 );               // start address
-	SPI.transfer( 0x00 );
-	SPI.transfer( 0x00 );
-	for (i = 0; i <= 7; i++) {
-		StatusReg = SPI.transfer( 0x00 );
-		Serial.print(" 0x");
-		Serial.print(StatusReg,HEX);
-	}
-    digitalWrite(MemSelectPin,HIGH); 
-	Serial.println("<");
-  
+  SPImemdump ( 0, 16 );
   
   Serial.println("done char bitmap to FLASH.");
+  
+  while (Serial.available() == 0) {};
+  incomingByte = Serial.read();
+
+  
+// --------------------------------------------------------------------------------------
+// BOINGBALL data copy
+// --------------------------------------------------------------------------------------
+
+unsigned long ballSize = 0;
+static unsigned long _ballSize = 0;
+
+ballSize = sizeof(boingball);
+_ballSize = ballSize;
+
+
+ // Sector erase for Boingball mem
+  for (i=0; i<(sizeof(boingball)>>8); i++)	// # of 256byte blocks loops
+  {
+
+	  digitalWrite(MemSelectPin,LOW);
+	  SPI.transfer( 0x06 );               // WEN
+	  digitalWrite(MemSelectPin,HIGH); 
+	  delay(1);
+	  digitalWrite(MemSelectPin,LOW);
+	  SPI.transfer( address );               // Sector erase
+	  SPI.transfer( 0x00 + (i/240) );        // sector address (16 blocks are reserved for font)
+	  SPI.transfer( 0x10 + (i%240) );
+	  SPI.transfer( 0x00 );
+	  digitalWrite(MemSelectPin,HIGH); 
+
+	  Serial.print( i + 0x10, HEX );
+	  Serial.print( " " );
+
+	  //delay(1000);
+      StatusReg = 1;
+	  while (StatusReg & 0x01 == 1) {
+		Serial.print(StatusReg,HEX);
+		digitalWrite(MemSelectPin,LOW);
+		SPI.transfer( 0x05 );
+		StatusReg = SPI.transfer(0x00);
+		digitalWrite(MemSelectPin,HIGH); 
+		delay(1);
+	  };
+	  Serial.println(StatusReg, HEX);
+	  
+//	  SPImemdump ( 0x1000 +i*256, 16 );
+	  
+  }
+  
+
+unsigned long ball_addr = 0;
+byte ballbyte = 0;
+
+// debug
+//	Serial.println ("Print boingball data");
+//	for (i=0; i<= 100; i++) {
+//	  	Serial.print( pgm_read_byte_near(boingball + i), HEX);
+//		Serial.print( " " );
+//		if (i%16 == 0)
+//			Serial.println ("<");
+//
+//	}
+
+// Write BoingBall map to Flash at address 0x1000
+  for (i=0; i<(sizeof(boingball))>>8; i++)	// # of 256byte blocks loops
+  {
+	ball_addr = BOINGBALL_ADDR + i*256;
+
+    digitalWrite(MemSelectPin,LOW);
+    SPI.transfer( 0x06 );               // WEN
+    digitalWrite(MemSelectPin,HIGH); 
+    delay(1);
+    digitalWrite(MemSelectPin,LOW);
+    SPI.transfer( 0x02 );				// Page program
+    SPI.transfer( (ball_addr >>16) & 0xFF );		// start address
+    SPI.transfer( (ball_addr >> 8) & 0xFF );		// 
+    SPI.transfer( (ball_addr     ) & 0xFF );		// 
+    
+//	Serial.print("Block Addr :0x");
+//	Serial.print(ball_addr, HEX);
+//	Serial.print(" -> ");
+	
+	if (i < ( (sizeof(boingball)) >> 8 )) 
+	{
+		blockwrite_len = 255;			// write full block
+	}
+	else
+	{
+		blockwrite_len = ((sizeof(boingball)) & 0xFF);			// write the tail end
+	}
+	
+    for (j = 0; j <= blockwrite_len; j++)	// write 256 byte
+    {
+      SPI.transfer( pgm_read_byte_near(boingball +(j + i*32*8)) );
+//	  if (j<16) {
+//		  	Serial.print(pgm_read_byte_near(boingball +(j + i*32*8)), HEX);
+//			Serial.print( " " );
+//	  }
+	}
+    digitalWrite(MemSelectPin,HIGH); 
+
+    StatusReg = 1;
+    while (StatusReg & 0x01 == 1) {
+      Serial.print("o");
+      digitalWrite(MemSelectPin,LOW);
+      SPI.transfer( 0x05 );
+      StatusReg = SPI.transfer(0x00);
+      digitalWrite(MemSelectPin,HIGH); 
+    };
+	Serial.println(StatusReg, HEX);
+	
+//	SPImemdump ( 0x1000 +i*256, 16 );
+
+  }
+
+ 	SPImemdump ( 0x1000, 256 );
+ 	SPImemdump ( 0x2FF8, 16 );
+  
+  Serial.println("done Boingball bitmap to FLASH.");
 
     while (Serial.available() == 0) {};
 	incomingByte = Serial.read();

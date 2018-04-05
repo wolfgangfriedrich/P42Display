@@ -1,8 +1,8 @@
-// VS23S010D-L header file for 
+// VS23S010D-L library file for 
 // P42 Video Display Shield for Arduino
-// 2018/Feb/11
 // Wolfgang Friedrich
-// https://hackaday.io/project/21097-arduino-video-display-shield
+// Last change: 2018/Mar/30
+// https://hackaday.io/project/21097-ntscpal-video-display-shield
 // https://github.com/wolfgangfriedrich/P42Display
 
 #include "Arduino.h"
@@ -150,16 +150,16 @@ void P42Display::SPIWriteRegister32(byte address, unsigned long value, boolean d
 	digitalWrite(slaveSelectPin,LOW);
 	// send in the address and value via SPI:
 	SPI.transfer( address );
-	SPI.transfer( byte( (value >> 24) & 0xFF));
-	SPI.transfer( byte( (value >> 16) & 0xFF));
-	SPI.transfer( byte( (value >>  8) & 0xFF));
-	SPI.transfer( byte(  value        & 0xFF));
+	SPI.transfer( byte( ((unsigned long)value >> 24) & 0xFF));
+	SPI.transfer( byte( ((unsigned long)value >> 16) & 0xFF));
+	SPI.transfer( byte( ((unsigned long)value >>  8) & 0xFF));
+	SPI.transfer( byte(  (unsigned long)value        & 0xFF));
 	// take the SS pin high to de-select the chip:
 	digitalWrite(slaveSelectPin,HIGH); 
 
 if (debug) {
 	Serial.print(F("Write "));
-	_printdebug(address,value);
+	_printdebug(address, (unsigned long)value);
 }
 	return; 
 }
@@ -185,7 +185,9 @@ void P42Display::SPIWriteRegister40(byte address, word source, word target, byte
 
 if (debug) {
 	Serial.print(F("Write "));
-	_printdebug(address,control);
+	_printdebug(address, source);
+	_printdebug(address, target);
+	_printdebug(address, control);
 }
 	return; 
 }
@@ -204,6 +206,7 @@ void P42Display::_protoline(u_int16 line, u_int16 offset, u_int16 limit, u_int16
 // ----------------------------------------------
 // Debug output of SPI address and value
 void P42Display::_printdebug(byte address, unsigned long value) {
+	
 	Serial.print(F("SPI address: 0x"));
 	Serial.print(address,HEX);
 	Serial.print(F(" : 0x"));
@@ -281,6 +284,10 @@ word P42Display::Config()
 		_protoline(0, BLANKEND, FRPORCH, BLACK_LEVEL);	// Set the color level to black
 		_protoline(0, 0, SYNC, SYNC_LEVEL);				// Set HSYNC
 		_protoline(0, BURST, BURSTDUR, BURST_LEVEL);	// Set color burst
+
+		// Mitigate left edge artifact comes
+		// http://www.vsdsp-forum.com/phpbb/viewtopic.php?f=14&t=2206#p11698
+		SPIWriteWord(PROTOLINE_WORD_ADDRESS(0) + 0x38, 0x000e, false);
 		
 		// Construct protoline 1. This is a short+short VSYNC line
 	#ifdef SERIAL_DEBUG
@@ -644,7 +651,7 @@ void P42Display::ClearScreen (byte colour) {
 	// memory start and size
 	address = ((unsigned long)PICLINE_BYTE_ADDRESS(0) + 0);
 	//	length = (unsigned long)XPIXELS * (unsigned long)YPIXELS;
-	length = ((unsigned long)PICLINE_BYTE_ADDRESS(YPIXELS-1) + XPIXELS-1);
+	length = ((unsigned long)PICLINE_BYTE_ADDRESS(YPIXELS-1) + XPIXELS-1)-address;
 
 	// take the SS pin low to select the chip:
 	digitalWrite(slaveSelectPin,LOW);

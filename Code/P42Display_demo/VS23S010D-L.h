@@ -1,8 +1,8 @@
 // VS23S010D-L header file for 
 // P42 Video Display Shield for Arduino
-// 2018/Feb/11
 // Wolfgang Friedrich
-// https://hackaday.io/project/21097-arduino-video-display-shield
+// Last change: 2018/Feb/11
+// https://hackaday.io/project/21097-ntscpal-video-display-shield
 // https://github.com/wolfgangfriedrich/P42Display
 
 #ifndef VS23S010D-L_h
@@ -95,6 +95,7 @@ const word PAL				= 0x4000;
 const word Enable_Video		= 0x8000;
 // WriteBlockMoveControl1 Register
 const word BMVC_PYF			= 0x0010;
+const word BMVC_DIR			= 0x0001;
 
 
 class P42Display

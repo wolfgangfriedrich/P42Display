@@ -267,11 +267,21 @@
 #define WHITE_LEVEL 0x00DE // 143 IRE
 #endif
 /// The original values
-#define THE_ORIG
+//#define THE_ORIG
 #ifdef THE_ORIG
 #define BLANK_LEVEL 0x003a
 #define BLACK_LEVEL 0x003a
 #define BURST_LEVEL 0xee3a
+#define WHITE_LEVEL 0x00FF
+#endif
+
+/// The test values
+#define THE_TEST
+#ifdef THE_TEST
+#define BLANK_LEVEL 0x0058
+#define BLACK_LEVEL 0x0058
+#define BURST_LEVEL 0xee58
+
 #define WHITE_LEVEL 0x00FF
 #endif
 
