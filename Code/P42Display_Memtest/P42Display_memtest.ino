@@ -25,15 +25,17 @@ const int nWPPin          = 7;
 
 const int CHAR_MAP_ADDR		= 0x0000;
 const int BOINGBALL_ADDR	= 0x1000;
+const int IMAGE1_ADDR		= 0x3000;
+const int IMAGE2_ADDR		= 0x5000;
 
 void setup() {
 	unsigned int P42_Display_ID = 0;
 
 //	P42Display::Init()
 
-	Serial.begin(115200);
+	Serial.begin(19200);
 	Serial.println("");
-	Serial.println("P42 Display Shield Memory Test");
+	Serial.println(F("P42 Display Shield Memory Test"));
 
 // Config pins
 pinMode(nWPPin, OUTPUT);
@@ -62,6 +64,9 @@ SPI.setBitOrder(MSBFIRST) ;
 }
 
 
+// --------------------------------------------------------------------------------------
+// Hexdump Flash memory to UART
+// --------------------------------------------------------------------------------------
 void SPImemdump (unsigned long address, unsigned int bytes) {
 
 	unsigned long i = 0;
@@ -92,7 +97,72 @@ void SPImemdump (unsigned long address, unsigned int bytes) {
 
 }
 
+// --------------------------------------------------------------------------------------
+// As the function says
+// --------------------------------------------------------------------------------------
+void SPImemSectorErase ( unsigned long mem_addr ) {
 
+  byte StatusReg = 0x01;
+	
+	digitalWrite(MemSelectPin,LOW);
+	SPI.transfer( 0x06 );               // WEN
+	digitalWrite(MemSelectPin,HIGH); 
+	//delay(1);
+	digitalWrite(MemSelectPin,LOW);
+	SPI.transfer( 0x20 );               // Sector erase
+	SPI.transfer( (mem_addr >>16) & 0xFF );        // sector address (16 blocks are reserved for font)
+	SPI.transfer( (mem_addr >> 8) & 0xFF );
+	SPI.transfer( 0x00 );
+	digitalWrite(MemSelectPin,HIGH); 
+
+//	Serial.print( mem_addr + 0x10, HEX );
+//	Serial.print( " " );
+
+	//delay(1000);
+    StatusReg = 1;
+	while (StatusReg & 0x01 == 1) {
+		Serial.print(StatusReg,HEX);
+		digitalWrite(MemSelectPin,LOW);
+		SPI.transfer( 0x05 );
+		StatusReg = SPI.transfer(0x00);
+		digitalWrite(MemSelectPin,HIGH); 
+		delay(1);
+	};
+	Serial.print(StatusReg, HEX);
+//	Serial.println();
+
+}
+
+// --------------------------------------------------------------------------------------
+// write a single Byte to flash
+// --------------------------------------------------------------------------------------
+void SPIwritebyte ( unsigned long mem_addr, byte data ) {
+	
+	byte StatusReg = 0x01;
+
+	digitalWrite(MemSelectPin,LOW);
+	SPI.transfer( 0x06 );               // WEN
+	digitalWrite(MemSelectPin,HIGH); 
+//	delay(1);
+	digitalWrite(MemSelectPin,LOW);
+	SPI.transfer( 0x02 );               // Page program
+    SPI.transfer( (mem_addr >>16) & 0xFF );		// start address
+    SPI.transfer( (mem_addr >> 8) & 0xFF );		// 
+    SPI.transfer( (mem_addr     ) & 0xFF );		// 
+	SPI.transfer( data);
+	digitalWrite(MemSelectPin,HIGH); 
+	
+	StatusReg = 1;
+	while (StatusReg & 0x01 == 1) {
+//		Serial.print("*");
+		digitalWrite(MemSelectPin,LOW);
+		SPI.transfer( 0x05 );
+		StatusReg = SPI.transfer(0x00);
+		digitalWrite(MemSelectPin,HIGH); 
+	};
+//	Serial.println(StatusReg, HEX);
+
+}
 
 
 void loop() {
@@ -105,8 +175,12 @@ void loop() {
   byte StatusReg = 0x01;
   unsigned long i,j = 0;
   byte blockwrite_len = 0;
+//*
 
-	Serial.println("Press Key to Start!");		// This is to stop the program when a new one is compiling and overwrite the content
+  Serial.println(F("!!!5 seconds wait... !!!"));
+  delay(5000);
+
+  Serial.println(F("Press Key to Start!"));		// This is to stop the program when a new one is compiling and overwrite the content
   while (Serial.available() == 0) {};
   incomingByte = Serial.read();
   
@@ -121,9 +195,9 @@ void loop() {
   DeviceID = SPI.transfer(0x00);
   digitalWrite(MemSelectPin,HIGH); 
 
-  Serial.print("SPIMem MfrID: 0x");
+  Serial.print(F("SPIMem MfrID: 0x"));
   Serial.print(MfrID,HEX);
-  Serial.print(" DeviceID: 0x");
+  Serial.print(F(" DeviceID: 0x"));
   Serial.println(DeviceID,HEX);
 
   address = 0x9f; // Jedec ID
@@ -134,11 +208,11 @@ void loop() {
   Capacity = SPI.transfer(0x00);
   digitalWrite(MemSelectPin,HIGH); 
 
-  Serial.print("Jedec MfrID: 0x");
+  Serial.print(F("Jedec MfrID: 0x"));
   Serial.print(MfrID,HEX);
-  Serial.print(" DeviceID: 0x");
+  Serial.print(F(" DeviceID: 0x"));
   Serial.print(DeviceID,HEX);
-  Serial.print(" Capacity: 0x");
+  Serial.print(F(" Capacity: 0x"));
   Serial.println(Capacity,HEX);
 
   Serial.println("-");
@@ -283,7 +357,7 @@ void loop() {
 
   SPImemdump ( 0, 16 );
   
-  Serial.println("done char bitmap to FLASH.");
+  Serial.println(F("done char bitmap to FLASH."));
   
   while (Serial.available() == 0) {};
   incomingByte = Serial.read();
@@ -304,31 +378,35 @@ _ballSize = ballSize;
   for (i=0; i<(sizeof(boingball)>>8); i++)	// # of 256byte blocks loops
   {
 
-	  digitalWrite(MemSelectPin,LOW);
-	  SPI.transfer( 0x06 );               // WEN
-	  digitalWrite(MemSelectPin,HIGH); 
-	  delay(1);
-	  digitalWrite(MemSelectPin,LOW);
-	  SPI.transfer( address );               // Sector erase
-	  SPI.transfer( 0x00 + (i/240) );        // sector address (16 blocks are reserved for font)
-	  SPI.transfer( 0x10 + (i%240) );
-	  SPI.transfer( 0x00 );
-	  digitalWrite(MemSelectPin,HIGH); 
+	Serial.print(BOINGBALL_ADDR+(i*256),HEX);
+	SPImemSectorErase ( BOINGBALL_ADDR+(i*256) );
+	Serial.println();
 
-	  Serial.print( i + 0x10, HEX );
-	  Serial.print( " " );
-
-	  //delay(1000);
-      StatusReg = 1;
-	  while (StatusReg & 0x01 == 1) {
-		Serial.print(StatusReg,HEX);
-		digitalWrite(MemSelectPin,LOW);
-		SPI.transfer( 0x05 );
-		StatusReg = SPI.transfer(0x00);
-		digitalWrite(MemSelectPin,HIGH); 
-		delay(1);
-	  };
-	  Serial.println(StatusReg, HEX);
+//	digitalWrite(MemSelectPin,LOW);
+//	SPI.transfer( 0x06 );               // WEN
+//	digitalWrite(MemSelectPin,HIGH); 
+//	delay(1);
+//	digitalWrite(MemSelectPin,LOW);
+//	SPI.transfer( 0x20 );               // Sector erase
+//	SPI.transfer( 0x00 + (i/240) );        // sector address (16 blocks are reserved for font)
+//	SPI.transfer( 0x10 + (i%240) );
+//	SPI.transfer( 0x00 );
+//	digitalWrite(MemSelectPin,HIGH); 
+//
+//	Serial.print( i + 0x10, HEX );
+//	Serial.print( " " );
+//
+//	//delay(1000);
+//    StatusReg = 1;
+//	while (StatusReg & 0x01 == 1) {
+//	Serial.print(StatusReg,HEX);
+//	digitalWrite(MemSelectPin,LOW);
+//	SPI.transfer( 0x05 );
+//	StatusReg = SPI.transfer(0x00);
+//	digitalWrite(MemSelectPin,HIGH); 
+//	delay(1);
+//	};
+//	Serial.println(StatusReg, HEX);
 	  
 //	  SPImemdump ( 0x1000 +i*256, 16 );
 	  
@@ -388,7 +466,7 @@ byte ballbyte = 0;
 
     StatusReg = 1;
     while (StatusReg & 0x01 == 1) {
-      Serial.print("o");
+      Serial.print("w");
       digitalWrite(MemSelectPin,LOW);
       SPI.transfer( 0x05 );
       StatusReg = SPI.transfer(0x00);
@@ -400,16 +478,116 @@ byte ballbyte = 0;
 
   }
 
- 	SPImemdump ( 0x1000, 256 );
- 	SPImemdump ( 0x2FF8, 16 );
+	SPImemdump ( 0x1000, 256 );
+	SPImemdump ( 0x2FF8, 16 );
+	SPImemdump ( 0, 16 );
   
-  Serial.println("done Boingball bitmap to FLASH.");
+	Serial.println(F("done Boingball bitmap to FLASH."));
 
-    while (Serial.available() == 0) {};
+
+//*/  End comment when everything above is disabled (line 178 after var declaration in loop{} )
+
+//  Serial.println(F("!!!10 seconds wait... !!!"));
+//  delay(10000);
+  Serial.println(F("!!!Use a proper terminal SW (e.g. Teraterm) and binary transfer!!!"));
+  Serial.println(F("Any key to start Image mem erase!"));
+  
+  while (Serial.available() == 0) {};
+  incomingByte = Serial.read();
+
+
+// --------------------------------------------------------------------------------------
+// Receive image data over UART and write to Flash
+// Currently suppoerted 24bit BMP
+// --------------------------------------------------------------------------------------
+
+	{
+	
+	unsigned long FileSize = 54;		// set to header size
+	byte inbyte = 0;
+	unsigned long counter = 0;
+	unsigned long ulongtemp = 0;		// 
+
+	SPImemdump ( IMAGE1_ADDR, 32 );
+
+	for (i=IMAGE1_ADDR; i<(IMAGE1_ADDR+16384); i=i+256)	// # of 256byte blocks loops for an image max 16k+255 SIZE
+	{
+		Serial.print(i,HEX);
+		SPImemSectorErase ( i );
+		Serial.println();
+	}
+	Serial.println(F(" SectorErase for image done!"));
+	SPImemdump ( IMAGE1_ADDR, 32 );
+
+	Serial.setTimeout(10000);
+	Serial.println(F("Please send BMP image now. (10sec timeout)"));
+	// file read while loop
+	while ( counter < FileSize ) {
+		
+		while ( !Serial.available() ) {}	// wait for next byte; timeout default is 1000msec
+		inbyte = Serial.read();
+//Serial.print("(");
+//Serial.print(counter,HEX);
+//Serial.print(")");
+
+if (counter < 54) {
+  Serial.print(inbyte,HEX);
+  Serial.print(".");
+}
+		switch ( counter ) {
+			case 0: {
+				if (inbyte != 'B') {
+					Serial.println(F("B0: Not a BMP"));
+					counter = FileSize;						// to stop while loop
+				}
+				break;
+			}
+			case 1: {
+				if (inbyte != 'M') {
+					Serial.println(F("B1: Not a BMP"));
+					counter = FileSize;						// to stop while loop
+				}
+				break;
+			}
+			case 2:{							// 2-5 file size in bytes
+				ulongtemp = inbyte;
+				break;
+			}
+			case 3:{
+				ulongtemp += (inbyte<<8);
+				break;
+			}
+			case 4:{
+				ulongtemp += (inbyte<<16);
+				break;
+			}
+			case 5:{
+				FileSize = ulongtemp + (inbyte<<24);
+				Serial.println(FileSize,HEX);
+				break;
+			}
+			default: {
+				break;
+			}
+		}	// switch
+		SPIwritebyte ( IMAGE1_ADDR+counter, inbyte );
+		counter ++; // this is the last instruction in the file read while loop
+	}		// while
+	Serial.println (F("Image done."));
+
+	SPImemdump ( IMAGE1_ADDR, 256 );
+
+	delay(1);
+	}
+	
+	SPImemdump ( 0, 16 );
+	SPImemdump ( 0x1000, 16 );
+
+	
+	Serial.println(F("Press key to restart"));
+	while ( !Serial.available() ) {}	// wait for next byte;
 	incomingByte = Serial.read();
 
-  
-	delay(1);
 }
 
 

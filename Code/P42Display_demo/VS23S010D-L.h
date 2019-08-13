@@ -9,8 +9,8 @@
 #define VS23S010D-L_h
 
 // *** Select Video Resolution here ***
-#define NTSC320x200
-//#define PAL300x240
+//#define NTSC320x200
+#define PAL300x240
 
 // *** Uncomment this line if target system is an Arduino MEGA ***
 //#define MEGA
@@ -24,6 +24,9 @@
 #ifdef PAL300x240
 	#include "pal300x240.h"
 #endif
+
+#define u_int32 unsigned long
+#define u_int16 unsigned int
 
 const int slaveSelectPin	= 10;
 const int MemSelectPin		=  9;
@@ -95,6 +98,7 @@ const word PAL				= 0x4000;
 const word Enable_Video		= 0x8000;
 // WriteBlockMoveControl1 Register
 const word BMVC_PYF			= 0x0010;
+const word BMVC_DACC		= 0x0008;
 const word BMVC_DIR			= 0x0001;
 
 
@@ -106,26 +110,30 @@ class P42Display
 		word SPIReadRegister16 (byte address, boolean debug);
 		void SPIWriteRegister (byte address, byte value, boolean debug);
 		void SPIWriteRegister16 (byte address, word value, boolean debug );
-		void SPIWriteRegister32 (byte address, unsigned long value, boolean debug );
+		void SPIWriteRegister32 (byte address, u_int32 value, boolean debug );
 		void SPIWriteRegister40 (byte address, word source, word target, byte control, boolean debug );
 		word Config();
-//		byte SPITransferByte (unsigned long address, byte value, boolean debug);
-//		word SPITransferWord (unsigned long address, byte value, boolean debug);
-		byte SPIReadByte (unsigned long address);
-		word SPIReadWord (unsigned long address);
-		void SPIWriteByte (unsigned long address, byte value, boolean debug );
-		void SPIWriteWord (unsigned long address, word value, boolean debug );
+//		byte SPITransferByte (u_int32 address, byte value, boolean debug);
+//		word SPITransferWord (u_int32 address, byte value, boolean debug);
+		byte SPIReadByte (u_int32 address);
+		word SPIReadWord (u_int32 address);
+		void SPIWriteByte (u_int32 address, byte value, boolean debug );
+		void SPIWriteWord (u_int32 address, word value, boolean debug );
 		// Graphics commands
 		void FilledRectangle (u_int16 x1, u_int16 y1, u_int16 x2, u_int16 y2, u_int16 color);
 		void ClearScreen ( byte colour );
-		void SetRGBPixel (word x, word y, unsigned long colour);	// colour is 0x00rrggbb
+		void SetRGBPixel (word x, word y, u_int32 colour);	// colour is 0x00rrggbb
 		void SetYUVPixel (word x, word y, byte colour);   			// colour is single word
 		void PrintChar (char Letter, word x, word y, byte colour);	// YUV colour
 		void PrintString (char* Text, word x, word y, byte colour);	// YUV colour
 		// block move 
-	private:
+		
+		// Data copy
+		byte UARTDataToFlash ( u_int32 length, u_int32 mem_location);   // receive number of bytes on UART and write to Flash memory address
+		void DisplayBMPFromFlash ( u_int32 mem_location, u_int16 x, u_int16 y );	// 
+ 	private:
 		void _protoline(u_int16 line, u_int16 offset, u_int16 limit, u_int16 data);
-		void _printdebug (byte address, unsigned long value);
+		void _printdebug (byte address, u_int32 value);
 	
 };
 

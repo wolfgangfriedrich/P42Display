@@ -8,9 +8,6 @@
 #ifndef NTSC_H
 #define NTSC_H
 
-#define u_int16 unsigned int
-#define u_int32 unsigned long
-
 // Crystal frequency in MHZ (float, observe accuracy)
 #define XTAL_MHZ 3.579545
 // Line length in microseconds (float, observe accuracy)
@@ -143,13 +140,13 @@
 #define SHIFT_BITS(a) (a)
 
 // The microcode is given as a 32-bit parameter to the SpiRW-function, and must
-// therefore be typecasted to unsigned long. Otherwise, if using Arduino, the values 
+// therefore be typecasted to u_int32. Otherwise, if using Arduino, the values 
 // shifted beyond 16-bit range are lost. VS1005 and VS1010 would not require typecasting
 // in this instance.
-#define OP1 (unsigned long)(PICK_B + PICK_BITS(2) + SHIFT_BITS(2))
-#define OP2 (unsigned long)(PICK_A + PICK_BITS(2) + SHIFT_BITS(2))
-#define OP3 (unsigned long)(PICK_Y + PICK_BITS(4) + SHIFT_BITS(4))
-#define OP4 (unsigned long)(PICK_NOTHING)
+#define OP1 (u_int32)(PICK_B + PICK_BITS(2) + SHIFT_BITS(2))
+#define OP2 (u_int32)(PICK_A + PICK_BITS(2) + SHIFT_BITS(2))
+#define OP3 (u_int32)(PICK_Y + PICK_BITS(4) + SHIFT_BITS(4))
+#define OP4 (u_int32)(PICK_NOTHING)
 
 #define USHIFT 6
 #define VSHIFT 4

@@ -8,9 +8,6 @@
 #ifndef PAL_H
 #define PAL_H
 
-#define u_int16 unsigned int
-#define u_int32 unsigned long
-
 /// Selects interlaced PAL picture. When commented progressive PAL is used.		
 //#define INTERLACE
 /// Selects byte wide pixel. When commented word wide pixel is used.
@@ -180,10 +177,10 @@
 #define VSHIFT 8
 #else
 /// 8 bits per pixel, U2 V2 Y4
-#define OP1 (unsigned long)(PICK_A + PICK_BITS(2) + SHIFT_BITS(2))
-#define OP2 (unsigned long)(PICK_B + PICK_BITS(2) + SHIFT_BITS(2))
-#define OP3 (unsigned long)(PICK_Y + PICK_BITS(4) + SHIFT_BITS(4))
-#define OP4 (unsigned long)(PICK_NOTHING)
+#define OP1 (u_int32)(PICK_A + PICK_BITS(2) + SHIFT_BITS(2))
+#define OP2 (u_int32)(PICK_B + PICK_BITS(2) + SHIFT_BITS(2))
+#define OP3 (u_int32)(PICK_Y + PICK_BITS(4) + SHIFT_BITS(4))
+#define OP4 (u_int32)(PICK_NOTHING)
 
 /// U & V data shift values in a 8-bit pixel are defined.
 #define USHIFT 6
@@ -278,9 +275,9 @@
 /// The test values
 #define THE_TEST
 #ifdef THE_TEST
-#define BLANK_LEVEL 0x0058
-#define BLACK_LEVEL 0x0058
-#define BURST_LEVEL 0xee58
+#define BLANK_LEVEL 0x003a
+#define BLACK_LEVEL 0x003a
+#define BURST_LEVEL 0xBB3a
 
 #define WHITE_LEVEL 0x00FF
 #endif

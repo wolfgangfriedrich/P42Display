@@ -23,28 +23,10 @@
 // Config SPI for communication witht the VLSI VS23S010D-L chip
 P42Display::P42Display()
 {
-	// Config pins
-	pinMode(nWPPin, OUTPUT);
-	digitalWrite(nWPPin, HIGH);
-	pinMode(nHOLDPin, OUTPUT);
-	digitalWrite(nHOLDPin, HIGH);
+	//Serial.begin(115200);
+	//Serial.println("");
+	//Serial.println(F("P42 Display Shield Test"));
 
-	// Disable pins that are used for SPI on Uno.
-#ifdef MEGA
-	pinMode(11, INPUT);
-	pinMode(12, INPUT);
-	pinMode(13, INPUT);
-#endif	
-
-	// Config SPI interface
-	pinMode(slaveSelectPin, OUTPUT);
-	digitalWrite(slaveSelectPin, HIGH);
-	pinMode(MemSelectPin, OUTPUT);
-	digitalWrite(MemSelectPin, HIGH);
-	SPI.begin();
-	SPI.setClockDivider(SPI_CLOCK_DIV2);
-	SPI.setDataMode(SPI_MODE0);
-	SPI.setBitOrder(MSBFIRST) ; 
 
 }
 
@@ -142,7 +124,7 @@ if (debug) {
 // ----------------------------------------------
 // Write 32bit register
 // hi data byte is sent first, lo data byte last.
-void P42Display::SPIWriteRegister32(byte address, unsigned long value, boolean debug = false)
+void P42Display::SPIWriteRegister32(byte address, u_int32 value, boolean debug = false)
 {
 	byte value_hi =0;
 
@@ -150,16 +132,16 @@ void P42Display::SPIWriteRegister32(byte address, unsigned long value, boolean d
 	digitalWrite(slaveSelectPin,LOW);
 	// send in the address and value via SPI:
 	SPI.transfer( address );
-	SPI.transfer( byte( ((unsigned long)value >> 24) & 0xFF));
-	SPI.transfer( byte( ((unsigned long)value >> 16) & 0xFF));
-	SPI.transfer( byte( ((unsigned long)value >>  8) & 0xFF));
-	SPI.transfer( byte(  (unsigned long)value        & 0xFF));
+	SPI.transfer( byte( ((u_int32)value >> 24) & 0xFF));
+	SPI.transfer( byte( ((u_int32)value >> 16) & 0xFF));
+	SPI.transfer( byte( ((u_int32)value >>  8) & 0xFF));
+	SPI.transfer( byte(  (u_int32)value        & 0xFF));
 	// take the SS pin high to de-select the chip:
 	digitalWrite(slaveSelectPin,HIGH); 
 
 if (debug) {
 	Serial.print(F("Write "));
-	_printdebug(address, (unsigned long)value);
+	_printdebug(address, (u_int32)value);
 }
 	return; 
 }
@@ -200,12 +182,12 @@ void P42Display::_protoline(u_int16 line, u_int16 offset, u_int16 limit, u_int16
 	u_int32 w = (PROTOLINE_WORD_ADDRESS(line) + offset);
 
 	if (offset == BLANKEND) i = BLANKEND;
-	for (; i<=limit; i++) SPIWriteWord((unsigned long)w++, data, false);
+	for (; i<=limit; i++) SPIWriteWord((u_int32)w++, data, false);
 }
 
 // ----------------------------------------------
 // Debug output of SPI address and value
-void P42Display::_printdebug(byte address, unsigned long value) {
+void P42Display::_printdebug(byte address, u_int32 value) {
 	
 	Serial.print(F("SPI address: 0x"));
 	Serial.print(address,HEX);
@@ -219,7 +201,7 @@ void P42Display::_printdebug(byte address, unsigned long value) {
 word P42Display::Config()
 {
 	word result = 0;
-	unsigned long i,j = 0;
+	u_int32 i,j = 0;
 
 	// Read ID register to make sure the shield is connected.
 	result = SPIReadRegister16( ReadDeviceID, false );
@@ -338,6 +320,7 @@ word P42Display::Config()
 
 		// Enable PAL Y lowpass filter
 		SPIWriteRegister40 (WriteBlockMoveControl1, 0x0000, 0x0000, BMVC_PYF, false );
+//		SPIWriteRegister40 (WriteBlockMoveControl1, 0x0000, 0x0000, BMVC_PYF | BMVC_DACC, false );
 		// set all line indexes to point to protoline 0
 	#ifdef SERIAL_DEBUG
 		Serial.println(F("set line index to protoline 0"));
@@ -474,7 +457,7 @@ word P42Display::Config()
 			SPIWriteByte (INDEX_START_BYTES + (i + STARTLINE)*3 + 1,  (PICLINE_BYTE_ADDRESS(i) >> 1), false);
 			SPIWriteByte (INDEX_START_BYTES + (i + STARTLINE)*3 + 2,  (PICLINE_BYTE_ADDRESS(i) >> 9), false);
 		}
-		// Enable Video Display Controller, set video mode to NTSC, set program length and linecount.
+		// Enable Video Display Controller, set video mode to PAL, set program length and linecount.
 		SPIWriteRegister16 (WriteVideoDisplayControl2, Enable_Video | PAL | Program_Length | LineCount, false );
 
 		// Fixes the picture to proto area border artifacts when BEXTRA > 0.
@@ -505,7 +488,7 @@ word P42Display::Config()
 
 // ----------------------------------------------
 // Read 8bit byte from SRAM memory
-byte P42Display::SPIReadByte (unsigned long address)
+byte P42Display::SPIReadByte (u_int32 address)
 {
 	byte result = 0;
 	byte result_hi = 0;
@@ -526,7 +509,7 @@ byte P42Display::SPIReadByte (unsigned long address)
 }
 // ----------------------------------------------
 // Read 16bit word from SRAM memory
-word P42Display::SPIReadWord (unsigned long address)
+word P42Display::SPIReadWord (u_int32 address)
 {
 	word result = 0;
 	byte result_hi = 0;
@@ -557,7 +540,7 @@ word P42Display::SPIReadWord (unsigned long address)
 
 // ----------------------------------------------
 // Write 8bit byte into SRAM memory
-void P42Display::SPIWriteByte (unsigned long address, byte value, boolean debug = false)
+void P42Display::SPIWriteByte (u_int32 address, byte value, boolean debug = false)
 {
 	// take the SS pin low to select the chip:
 	digitalWrite(slaveSelectPin,LOW);
@@ -583,7 +566,7 @@ void P42Display::SPIWriteByte (unsigned long address, byte value, boolean debug 
 
 // ----------------------------------------------
 // Write 16bit word into SRAM memory
-void P42Display::SPIWriteWord (unsigned long address, word value, boolean debug = false)
+void P42Display::SPIWriteWord (u_int32 address, word value, boolean debug = false)
 {
 	byte high = value >> 8;
 	byte low = value & 0xFF;
@@ -649,9 +632,9 @@ void P42Display::ClearScreen (byte colour) {
 
 	// fast version
 	// memory start and size
-	address = ((unsigned long)PICLINE_BYTE_ADDRESS(0) + 0);
-	//	length = (unsigned long)XPIXELS * (unsigned long)YPIXELS;
-	length = ((unsigned long)PICLINE_BYTE_ADDRESS(YPIXELS-1) + XPIXELS-1)-address;
+	address = ((u_int32)PICLINE_BYTE_ADDRESS(0) + 0);
+	//	length = (u_int32)XPIXELS * (u_int32)YPIXELS;
+	length = ((u_int32)PICLINE_BYTE_ADDRESS(YPIXELS-1) + XPIXELS-1)-address;
 
 	// take the SS pin low to select the chip:
 	digitalWrite(slaveSelectPin,LOW);
@@ -671,7 +654,7 @@ void P42Display::ClearScreen (byte colour) {
 // Convert a RGB color value into VUY and set the pixel. 
 // This only works with the video high color palette
 // color is 0x00rrggbb
-void P42Display::SetRGBPixel (word x, word y, unsigned long colour) {
+void P42Display::SetRGBPixel (word x, word y, u_int32 colour) {
 	
 	u_int32 address;
 	u_int16 red, green, blue;
@@ -753,6 +736,8 @@ u_int32 address, char_address;
 
 }
 
+
+
 // -----------------------------------------------
 // Print String
 void P42Display::PrintString (char* Text, word x, word y, byte colour) {
@@ -776,4 +761,254 @@ u_int16 x_loc = 0;
 		i++;
 	}
 //	Serial.println();
+}
+
+// -----------------------------------------------
+// receive number of bytes on UART and write to Flash memory address
+byte P42Display::UARTDataToFlash ( u_int32 length, u_int32 mem_location) {
+	u_int32	i,j = 0;
+	byte return_value = 0;
+	
+	Serial.print (F("Expecting"));
+	Serial.print (length, DEC);
+	Serial.print (F("= 0x"));
+	Serial.print (length, HEX);
+	Serial.print (F(" Bytes."));
+	
+	
+	return return_value;
+};   
+
+
+
+
+
+// --------------------------------------------------------------------------------------
+// Hexdump Flash memory to UART
+// --------------------------------------------------------------------------------------
+void SPImemdump (unsigned long address, unsigned int bytes) {
+
+	unsigned long i = 0;
+	byte result =0;
+	
+	digitalWrite(MemSelectPin,LOW);
+	SPI.transfer( 0x03 );					// read data
+	SPI.transfer( (address >>16) &0xFF );	// start address
+	SPI.transfer( (address >> 8) &0xFF );
+	SPI.transfer( (address     ) &0xFF );
+	for (i = 0; i < bytes; i++) {
+		if ((i % 8) == 0) {
+			if (i != 0)
+				Serial.println (";");
+			Serial.print(" 0x");
+			Serial.print(address + i,HEX);
+			Serial.print(": ");
+		}
+		result = SPI.transfer( 0x00 );
+		Serial.print(" 0x");
+		if (result <0x10)
+			Serial.print ("0");
+		Serial.print(result,HEX);
+	}
+    digitalWrite(MemSelectPin,HIGH); 
+	Serial.println("<");
+  
+
+}
+
+
+
+// -----------------------------------------------
+// Read Data from Flash, interpret as an BMP image and display at coordinates x,y
+// Supported BMP: 24bit colour depth
+// Non colour mapping yet
+void P42Display::DisplayBMPFromFlash ( u_int32 mem_location, u_int16 x, u_int16 y ) {
+	
+	unsigned long counter = 0;
+	byte inbyte = 0;
+	byte pixelvalue = 0;
+	byte red,green,blue = 0;
+	
+	unsigned long FileSize = 54;		// set to header size
+	unsigned long PixelOffset = 54;		// Offset from beginning of file to the beginning of the bitmap data
+	unsigned long Width = 0;			// 
+	unsigned long Height = 0;			// 
+	byte BitsPerPixel = 0;
+	byte Compression = 0;
+	unsigned long ulongtemp = 0;		// 
+
+
+		SPImemdump (0, 16);
+		SPImemdump (0x1000, 16);
+		SPImemdump (mem_location + counter, 16);
+
+	while ( counter < FileSize ) {
+		
+		digitalWrite(MemSelectPin,LOW);
+		SPI.transfer( 0x03 );									// read data
+		SPI.transfer( byte(((mem_location + counter) >>16) & 0xFF) );	// Flash start address
+		SPI.transfer( byte(((mem_location + counter) >> 8) & 0xFF) );
+		SPI.transfer( byte( (mem_location + counter)       & 0xFF) );
+		inbyte = SPI.transfer( 0x00 );
+		digitalWrite(MemSelectPin,HIGH); 
+		
+		
+//Serial.print("(0x");
+//Serial.print(mem_location + counter,HEX);
+//Serial.print(")");
+//Serial.print(inbyte,HEX);
+//Serial.print(".");
+		switch ( counter ) {
+			case 0: {
+				if (inbyte != 'B') {
+					Serial.println(F("B0: Not a BMP"));
+					counter = FileSize;						// to stop while loop
+				}
+				break;
+			}
+			case 1: {
+				if (inbyte != 'M') {
+					Serial.println(F("B1: Not a BMP"));
+					counter = FileSize;						// to stop while loop
+				}
+				break;
+			}
+			case 2:{							// 2-5 file size in bytes
+				ulongtemp = inbyte;
+				break;
+			}
+			case 3:{
+				ulongtemp += (inbyte<<8);
+				break;
+			}
+			case 4:{
+				ulongtemp += (inbyte<<16);
+				break;
+			}
+			case 5:{
+				FileSize = ulongtemp + (inbyte<<24);
+				Serial.print(F("Filesize: "));
+				Serial.println(FileSize);
+				break;
+			}
+			case 0xA:{							// 10-13 pixel offset
+				PixelOffset = inbyte;
+				break;
+			}
+			case 0xB:{
+				PixelOffset += (inbyte<<8);
+				break;
+			}
+			case 0xC:{
+				PixelOffset += (inbyte<<16);
+				break;
+			}
+			case 0xD:{
+				PixelOffset = PixelOffset + (inbyte<<24);
+				Serial.print(F("PixelOffset: 0x"));
+				Serial.println(PixelOffset,HEX);
+				break;
+			}
+			case 0x12:{							// 0x12-0x15 width
+				Width = inbyte;
+				break;
+			}
+			case 0x13:{
+				Width += (inbyte<<8);
+				break;
+			}
+			case 0x14:{
+				Width += (inbyte<<16);
+				break;
+			}
+			case 0x15:{
+				Width = Width + (inbyte<<24);
+				break;
+			}
+			case 0x16:{							// 0x12-0x15 Height
+				Height = inbyte;
+				break;
+			}
+			case 0x17:{
+				Height += (inbyte<<8);
+				break;
+			}
+			case 0x18:{
+				Height += (inbyte<<16);
+				break;
+			}
+			case 0x19:{
+				Height = Height + (inbyte<<24);
+				break;
+			}
+			case 0x1C:{
+				BitsPerPixel = inbyte;
+				Serial.print(BitsPerPixel);
+				Serial.println(F("bit image"));
+				break;
+			}
+			case 0x1E:{
+				Compression = inbyte;
+				break;
+			}
+			default: {
+				break;
+			}
+		}	// switch
+		if ( counter >= PixelOffset ) {
+			switch ( BitsPerPixel ) {
+				case 8: {
+					//Serial.println(F("8bit image"));
+					digitalWrite(MemSelectPin,LOW);
+					SPI.transfer( 0x03 );									// read data
+					SPI.transfer( byte(((mem_location + 0x36 +inbyte*4) >>16) & 0xFF) );	// Flash start address of BMP colour table
+					SPI.transfer( byte(((mem_location + 0x36 +inbyte*4) >> 8) & 0xFF) );
+					SPI.transfer( byte( (mem_location + 0x36 +inbyte*4)       & 0xFF) );
+					red = SPI.transfer( 0x00 );
+					green = SPI.transfer( 0x00 );
+					blue = SPI.transfer( 0x00 );
+					digitalWrite(MemSelectPin,HIGH); 
+					
+					pixelvalue = (red>>6) + (green>>6) + (blue>>6);		// translate RGB into 12 value grey scale
+					SetYUVPixel ( x + (counter-PixelOffset)%Width , y+Height - (counter-PixelOffset)/Width, pixelvalue+2); // shift 2 values up
+					
+					break;
+				}
+				case 24: {
+					//Serial.println(F("24bit image"));
+					switch ( (counter-PixelOffset)%3 ) {
+						// scale 24bit into 4 lower bit of pixelvalue for a 12-step grey scale image.
+						case 0:{
+							// blue sub-pixel
+							pixelvalue = inbyte>>6;
+							break;
+						}
+						case 1:{
+							// green sub-pixel
+							pixelvalue = pixelvalue + (inbyte>>6);
+							break;
+						}
+						case 2:{
+							// red sub-pixel
+							pixelvalue = pixelvalue + (inbyte>>6);
+							SetYUVPixel ( x + (counter-PixelOffset)%Width , y+Height - (counter-PixelOffset)/Width, pixelvalue+2); // shift 2 values up
+							break;
+						}
+						default: {
+							break;
+						}
+					}
+				}
+				default: {
+					break;
+				}
+			}
+		}
+		counter ++; // this is the last instruction in the file read while loop
+	}		// while
+	Serial.println (F("Image done."));
+
+
+
+
 }

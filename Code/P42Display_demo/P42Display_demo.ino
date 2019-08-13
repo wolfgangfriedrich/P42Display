@@ -10,7 +10,7 @@
 //  NTSC 320x200x8bit 
 //  PAL  300x240x8bit
 
-#include "Arduino.h"
+#include <Arduino.h>
 #include <SPI.h>
 
 // *** Set Video mode and Uno/Mega platform in this header file ***
@@ -19,12 +19,37 @@
 P42Display P42Display; 
 
 void setup() {
-	unsigned int P42_Display_ID = 0;
+	u_int16 P42_Display_ID = 0;
+
+	while (!Serial) ;
 
 	Serial.begin(115200);
 	Serial.println("");
 	Serial.println(F("P42 Display Shield Test"));
 
+	// Config pins
+	pinMode(nWPPin, OUTPUT);
+	digitalWrite(nWPPin, HIGH);
+	pinMode(nHOLDPin, OUTPUT);
+	digitalWrite(nHOLDPin, HIGH);
+
+	// Disable pins that are used for SPI on Uno.
+#ifdef MEGA
+	pinMode(11, INPUT);
+	pinMode(12, INPUT);
+	pinMode(13, INPUT);
+#endif	
+
+	// Config SPI interface
+	pinMode(slaveSelectPin, OUTPUT);
+	digitalWrite(slaveSelectPin, HIGH);
+	pinMode(MemSelectPin, OUTPUT);
+	digitalWrite(MemSelectPin, HIGH);
+	SPI.begin();
+	SPI.setClockDivider(SPI_CLOCK_DIV2);
+	SPI.setDataMode(SPI_MODE0);
+	SPI.setBitOrder(MSBFIRST) ; 
+	
 	P42_Display_ID = P42Display.Config();
 
 }
@@ -81,6 +106,12 @@ void loop() {
 		P42Display.FilledRectangle((i*XSIZEREC),              (j*YSIZEREC)+(YSIZEREC-1), (i*XSIZEREC)+(XSIZEREC-1), (j*YSIZEREC)+(YSIZEREC-1), 0);			// Draw black horizontal line
 		P42Display.FilledRectangle((i*XSIZEREC)+(XSIZEREC-1), (j*YSIZEREC),              (i*XSIZEREC)+(XSIZEREC-1), (j*YSIZEREC)+(YSIZEREC-1), 0);			// Draw black vertical line
 	}
+
+	Serial.println(F("Display Image [press key]") );
+	while (Serial.available() == 0) {};
+	incomingByte = Serial.read();
+	
+	P42Display.DisplayBMPFromFlash ( 0x3000, 10, 10 );
 
 	Serial.println(F("Clear Screen [press key]"));
 	while (Serial.available() == 0) {};
@@ -141,12 +172,13 @@ void loop() {
 			P42Display.SetYUVPixel (  j,   i, 0xbf);
 	
 	// single character print
+
 	Serial.println(F("Character [press key]"));
 	while (Serial.available() == 0) {};
 	incomingByte = Serial.read();
 
-	P42Display.PrintChar ('4', 0, 40, 0x15);
-	P42Display.PrintChar ('2', 8, 40, 0x15);
+	P42Display.PrintChar ('4', 0, 40, 0xEE);
+	P42Display.PrintChar ('2', 8, 40, 0xEE);
 	
 	// String output all characters
 	Serial.println(F("All characters [press key]"));
@@ -182,11 +214,12 @@ void loop() {
 	P42Display.ClearScreen ( 0x02 );
 	for (y=0; y < YPIXELS-8; y = y+8) {
 		for (x=0; x < XPIXELS-16; x = x+16 ) {
-			P42Display.FilledRectangle ( x, y, x+15, y+7, y/8*16 + x/16  + 1 );
+			P42Display.FilledRectangle ( x,    y,   x+15, y+7, y/8*16 + x/16  + 1 );
 			P42Display.FilledRectangle ( x+ 2, y+2, x+ 6, y+5, y/8*16 + x/16  + 1 + 2 );
 			P42Display.FilledRectangle ( x+10, y+2, x+13, y+5, y/8*16 + x/16  + 1 - 2 );
 		}
 	}
+
 	Serial.println(F("BoingBall [press key]") );
 	while (Serial.available() == 0) {};
 	incomingByte = Serial.read();
@@ -195,14 +228,14 @@ void loop() {
 	// BoingBall animation 
 	P42Display.ClearScreen ( 0x00 );
 	
-	const int BOINGBALL_ADDR					= 0x1000;
-	const unsigned long START_FREE_VIDEO_MEM	= (PICLINE_BYTE_ADDRESS(YPIXELS-1) + XPIXELS-1) +1;
-	const byte BALLX 							= 32;
-	const byte BALLY 							= 32;
-	const int BOINGBALL_BYTES					= BALLX * BALLY *8;
-	const unsigned long MEMBYTES_LINE 			= (PICLINE_BYTE_ADDRESS(1) + 0) - (PICLINE_BYTE_ADDRESS(0) + 0);
+	const int     BOINGBALL_ADDR		= 0x1000;
+	const u_int32 START_FREE_VIDEO_MEM	= (PICLINE_BYTE_ADDRESS(YPIXELS-1) + XPIXELS-1) +1;
+	const byte    BALLX 				= 32;
+	const byte    BALLY 				= 32;
+	const int     BOINGBALL_BYTES		= BALLX * BALLY *8;
+	const u_int32 MEMBYTES_LINE 		= (PICLINE_BYTE_ADDRESS(1) + 0) - (PICLINE_BYTE_ADDRESS(0) + 0);
 	
-	unsigned long skip = 0;
+	u_int32 skip = 0;
 
 	// copy ball data into video memory after picture data.
 	// quick and dirty inefficient memory copy routine
@@ -234,8 +267,8 @@ void loop() {
 	int x_dir = 1;
 	int y_dir = 1;
 	int frame_dir = 1;
-	unsigned long moveblock2 = 0;
-	unsigned long source, target, control;
+	u_int32 moveblock2 = 0;
+	u_int32 source, target, control;
 
 	while (Serial.available() == 0) {
 	
@@ -244,10 +277,10 @@ void loop() {
 		
 		// move block
 		P42Display.SPIWriteRegister40 (WriteBlockMoveControl1, 
-			((unsigned long)(START_FREE_VIDEO_MEM + frame_no*BALLX) >>1 & 0xFFFF), 
+			((u_int32)(START_FREE_VIDEO_MEM + frame_no*BALLX) >>1 & 0xFFFF), 
 			((PICLINE_BYTE_ADDRESS(y-1) + x-1) >>1 & 0xFFFF), 
-			BMVC_PYF | ((unsigned long)(START_FREE_VIDEO_MEM + frame_no*BALLX) & 0x00001) <<2 | ((PICLINE_BYTE_ADDRESS(y-1) + x-1) & 0x00001) <<1 , false);
-		moveblock2 = (unsigned long)((unsigned long)(MEMBYTES_LINE-BALLX)<<16) | (BALLX<<8) | BALLY;
+			BMVC_PYF | ((u_int32)(START_FREE_VIDEO_MEM + frame_no*BALLX) & 0x00001) <<2 | ((PICLINE_BYTE_ADDRESS(y-1) + x-1) & 0x00001) <<1 , false);
+		moveblock2 = (u_int32)((u_int32)(MEMBYTES_LINE-BALLX)<<16) | (BALLX<<8) | BALLY;
 		P42Display.SPIWriteRegister32 (WriteBlockMoveControl2, moveblock2, false);
 		P42Display.SPIWriteRegister (StartBlockMove, 0x00 , false);
 
@@ -297,7 +330,7 @@ void loop() {
 		}		
 		// wait for line counter to be at beginning of visible area
 		//while ( P42Display.SPIReadRegister16 ( ReadCurrentLinePLL, false) & 0x01ff > ENDLINE ) {}
-		delay (25);
+		delay (20);
 
 		};
 	incomingByte = Serial.read();
