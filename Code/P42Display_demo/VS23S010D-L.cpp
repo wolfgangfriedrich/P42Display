@@ -838,9 +838,10 @@ void P42Display::DisplayBMPFromFlash ( u_int32 mem_location, u_int16 x, u_int16 
 	unsigned long ulongtemp = 0;		// 
 
 
-		SPImemdump (0, 16);
-		SPImemdump (0x1000, 16);
-		SPImemdump (mem_location + counter, 16);
+	SPImemdump (0, 16);
+	SPImemdump (0x1000, 64);
+	
+	SPImemdump (mem_location + counter, 16);
 
 	while ( counter < FileSize ) {
 		

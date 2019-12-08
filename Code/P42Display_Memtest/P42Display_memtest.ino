@@ -9,6 +9,10 @@
 // *** Comment out this line if target system is not an Arduino MEGA ***
 //#define MEGA
 
+// *** Enable new functionality to write 255 color BMP image data to FLASH address IMAGE1_ADDR
+//     this is only tested with UART at 19200 baud!
+//#define IMAGEWRITE
+
 // inslude the SPI library:
 #include <Arduino.h>
 #include <SPI.h>
@@ -177,13 +181,46 @@ void loop() {
   byte blockwrite_len = 0;
 //*
 
-  Serial.println(F("!!!5 seconds wait... !!!"));
+  Serial.println(F("!!! 5 seconds wait... !!!"));
   delay(5000);
 
   Serial.println(F("Press Key to Start!"));		// This is to stop the program when a new one is compiling and overwrite the content
   while (Serial.available() == 0) {};
   incomingByte = Serial.read();
   
+  // I2C EEPROM memory test
+  Wire.begin(); // wake up I2C bus
+  Wire.beginTransmission(0x50);
+  Wire.write(0x00); // memory address 0
+  Wire.write(0x00);
+  Wire.write(0xC0); 
+  Wire.write(0xFF); 
+  Wire.write(0xEE); 
+  Wire.endTransmission();
+  
+  delay(250);
+   
+  Wire.begin(); // wake up I2C bus
+  Wire.beginTransmission(0x50);
+  Wire.write(0x00); // memory address 0
+  Wire.write(0x00);
+  Wire.endTransmission();
+
+  incomingByte = 0x00;
+  Wire.requestFrom(0x50, 3); // 7-bit addres without R/W bit
+  incomingByte = Wire.read(); // first received byte stored 
+  Serial.print(incomingByte, HEX);
+  incomingByte = Wire.read(); // 2nd received byte stored 
+  Serial.print(incomingByte, HEX);
+  incomingByte = Wire.read(); // 3nd received byte stored 
+  Serial.println(incomingByte, HEX);
+
+  Serial.println("done EEPROM.");
+  
+  while (Serial.available() == 0) {};
+  incomingByte = Serial.read();
+
+
   
   // SPI Flash test
   digitalWrite(MemSelectPin,LOW);
@@ -279,38 +316,6 @@ void loop() {
   Serial.println(DeviceID, HEX);
 
   Serial.println("done Flash.");
-  while (Serial.available() == 0) {};
-  incomingByte = Serial.read();
-
-  // I2C EEPROM memory test
-  Wire.begin(); // wake up I2C bus
-  Wire.beginTransmission(0x50);
-  Wire.write(0x00); // memory address 0
-  Wire.write(0x00);
-  Wire.write(0xC0); 
-  Wire.write(0xFF); 
-  Wire.write(0xEE); 
-  Wire.endTransmission();
-  
-  delay(250);
-   
-  Wire.begin(); // wake up I2C bus
-  Wire.beginTransmission(0x50);
-  Wire.write(0x00); // memory address 0
-  Wire.write(0x00);
-  Wire.endTransmission();
-
-  incomingByte = 0x00;
-  Wire.requestFrom(0x50, 3); // 7-bit addres without R/W bit
-  incomingByte = Wire.read(); // first received byte stored 
-  Serial.print(incomingByte, HEX);
-  incomingByte = Wire.read(); // 2nd received byte stored 
-  Serial.print(incomingByte, HEX);
-  incomingByte = Wire.read(); // 3nd received byte stored 
-  Serial.println(incomingByte, HEX);
-
-  Serial.println("done EEPROM.");
-  
   while (Serial.available() == 0) {};
   incomingByte = Serial.read();
 
@@ -484,8 +489,11 @@ byte ballbyte = 0;
   
 	Serial.println(F("done Boingball bitmap to FLASH."));
 
+//*/  End comment when everything above is disabled (line 182 after var declaration in loop{} )
 
-//*/  End comment when everything above is disabled (line 178 after var declaration in loop{} )
+
+
+#ifdef IMAGEWRITE
 
 //  Serial.println(F("!!!10 seconds wait... !!!"));
 //  delay(10000);
@@ -580,13 +588,14 @@ if (counter < 54) {
 	delay(1);
 	}
 	
+#endif
+	
 	SPImemdump ( 0, 16 );
 	SPImemdump ( 0x1000, 16 );
 
 	
-	Serial.println(F("Press key to restart"));
-	while ( !Serial.available() ) {}	// wait for next byte;
-	incomingByte = Serial.read();
+	Serial.println(F("Memory test and cofiguration done. "));
+	while ( 1 ) {}	// wait forever;
 
 }
 

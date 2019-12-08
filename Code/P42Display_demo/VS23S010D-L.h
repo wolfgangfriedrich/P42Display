@@ -13,7 +13,7 @@
 #define PAL300x240
 
 // *** Uncomment this line if target system is an Arduino MEGA ***
-//#define MEGA
+#define MEGA
 
 // *** Uncomment this line to get extra debug information on the serial interface ***
 //#define SERIAL_DEBUG
